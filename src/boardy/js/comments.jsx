@@ -8,6 +8,8 @@ function CommentApp() {
     const [text, setText] = useState('');
     const [editId, setEditId] = useState(null);
     const [editText, setEditText] = useState('');
+    
+    const [jwt, setJwt] = useState(null);
 
     const load = async () => {
         try {
@@ -19,15 +21,48 @@ function CommentApp() {
         }
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        load();
+
+        fetch('/api/me.php', { credentials: 'include' })
+            .then(r => {
+                if (!r.ok) return null;
+                return r.json();
+            })
+            .then(data => {
+                if (data && data.token) {
+                    setJwt(data.token);
+                    console.log("JWT успешно получен:", data.token);
+                }
+            })
+            .catch(() => setJwt(null));
+    }, []);
+
+    const getAuthHeaders = () => {
+        const headers = { 'Content-Type': 'application/json' };
+        if (jwt) {
+            headers['Authorization'] = 'Bearer ' + jwt;
+        }
+        return headers;
+    };
 
     const add = async () => {
         if (!text.trim()) return;
+
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        if (jwt) {
+            headers['Authorization'] = 'Bearer ' + jwt;
+        }
+
         await fetch(`${API}/api/posts/${POST_ID}/comments`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: JSON.stringify({ body: text })
         });
+
         setText('');
         load();
     };
@@ -35,7 +70,7 @@ function CommentApp() {
     const save = async (id) => {
         await fetch(`${API}/api/comments/${id}`, {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: getAuthHeaders(),
             body: JSON.stringify({ body: editText })
         });
         setEditId(null);
@@ -44,16 +79,24 @@ function CommentApp() {
 
     const del = async (id) => {
         if (!confirm('Удалить этот комментарий?')) return;
-        await fetch(`${API}/api/comments/${id}`, { method: 'DELETE' });
+        const headers = {};
+        if (jwt) {
+            headers['Authorization'] = 'Bearer ' + jwt;
+        }
+
+        await fetch(`${API}/api/comments/${id}`, { 
+            method: 'DELETE',
+            headers: headers
+        });
         load();
     };
 
     return (
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h3 class="mb-0">Комментарии</h3>
+        <div className="card shadow-sm">
+            <div className="card-header bg-primary text-white">
+                <h3 className="mb-0">Комментарии</h3>
             </div>
-            <div class="card-body">
+            <div className="card-body">
                 {items.map(item => (
                     <div key={item.id} className="card mb-3 comment-card">
                         <div className="card-body">
@@ -75,16 +118,20 @@ function CommentApp() {
                             ) : (
                                 <div>
                                     <p className="card-text">{item.body}</p>
-                                    <div className="d-flex gap-2">
-                                        <button 
-                                            className="btn btn-sm btn-outline-secondary" 
-                                            onClick={() => { setEditId(item.id); setEditText(item.body); }}
-                                        >Редактировать</button>
-                                        <button 
-                                            className="btn btn-sm btn-outline-danger" 
-                                            onClick={() => del(item.id)}
-                                        >Удалить</button>
-                                    </div>
+                                    {/* Показываем кнопки редактирования/удаления только авторизованным (jwt !== null) */}
+                                    {/* В идеале тут еще проверять, что ID автора равен ID текущего юзера, но пока так */}
+                                    {jwt && (
+                                        <div className="d-flex gap-2">
+                                            <button 
+                                                className="btn btn-sm btn-outline-secondary" 
+                                                onClick={() => { setEditId(item.id); setEditText(item.body); }}
+                                            >Редактировать</button>
+                                            <button 
+                                                className="btn btn-sm btn-outline-danger" 
+                                                onClick={() => del(item.id)}
+                                            >Удалить</button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -93,15 +140,19 @@ function CommentApp() {
 
                 <div className="mt-4 pt-3 border-top">
                     <h5>Оставить комментарий</h5>
-                    <div className="input-group">
-                        <input 
-                            className="form-control" 
-                            placeholder="Напишите что-нибудь..." 
-                            value={text} 
-                            onChange={e => setText(e.target.value)} 
-                        />
-                        <button className="btn btn-primary" onClick={add}>Отправить</button>
-                    </div>
+                    {jwt ? (
+                        <div className="input-group">
+                            <input 
+                                className="form-control" 
+                                placeholder="Напишите что-нибудь..." 
+                                value={text} 
+                                onChange={e => setText(e.target.value)} 
+                            />
+                            <button className="btn btn-primary" onClick={add}>Отправить</button>
+                        </div>
+                    ) : (
+                        <p className="text-muted">Пожалуйста, <a href="/login.php">войдите</a>, чтобы оставить комментарий.</p>
+                    )}
                 </div>
             </div>
         </div>

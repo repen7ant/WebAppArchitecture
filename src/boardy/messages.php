@@ -17,6 +17,13 @@ $messages = $stmt->fetchAll();
     <main class="container">
         <h2 class="page-title">Все посты</h2>
 
+        <?php if (!empty($_SESSION['github_login'])): ?>
+            <div style="background-color: #d4edda; color: #155724; padding: 15px 20px; border-radius: 4px; margin-bottom: 20px; font-size: 14px;">
+                Вы вошли через GitHub как <strong><?= htmlspecialchars($_SESSION['user_name']) ?></strong>
+            </div>
+            <?php unset($_SESSION['github_login']); // Удаляем флаг, чтобы баннер не висел вечно ?>
+        <?php endif; ?>
+
         <?php if (empty($messages)): ?>
             <p>Сообщений пока нет.</p>
         <?php else: ?>
