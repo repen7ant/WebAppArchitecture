@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Http;
 
 class PostController extends Controller
 {
@@ -17,7 +18,7 @@ class PostController extends Controller
         // Загружаем посты вместе с авторами (чтобы избежать проблемы N+1),
         // сортируем от новых к старым и разбиваем по 10 на страницу
         $posts = \App\Models\Post::with('author')->latest()->paginate(10);
-        
+
         return view('posts.index', compact('posts'));
     }
     /**
@@ -33,19 +34,26 @@ class PostController extends Controller
      */
     public function store(\Illuminate\Http\Request $request)
     {
-        // 1. Валидация входных данных
         $data = $request->validate([
             'title' => 'required|string|max:200',
             'body' => 'required|string|max:5000',
         ]);
 
-        // 2. Получаем текущего пользователя (или берем тестового юзера с ID 1, пока нет системы логина)
         $user = $request->user() ?? \App\Models\User::first();
-
-        // 3. Создаем пост через связь (user_id подставится автоматически)
         $post = $user->posts()->create($data);
 
-        // 4. Редирект на страницу созданного поста с flash-сообщением
+        try {
+            \Illuminate\Support\Facades\Http::timeout(2)->post('http://localhost:8000/internal/broadcast', [
+                'id'         => $post->id,
+                'title'      => $post->title,
+                'body'       => $post->body,
+                'author'     => $user->name,
+                'created_at' => $post->created_at->toISOString(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::warning('WS broadcast failed: ' . $e->getMessage());
+        }
+
         return redirect()->route('posts.show', $post)
             ->with('success', 'Пост успешно опубликован!');
     }
@@ -66,7 +74,7 @@ class PostController extends Controller
     {
         // Проверка прав: может ли текущий юзер редактировать (update) этот пост
         $this->authorize('update', $post);
-        
+
         return view('posts.edit', compact('post'));
     }
     /**
@@ -75,7 +83,7 @@ class PostController extends Controller
     public function update(Request $request, Post $post)
     {
         $this->authorize('update', $post);
-        
+
         $data = $request->validate([
             'title' => 'required|string|max:200',
             'body' => 'required|string|max:5000',
@@ -93,7 +101,7 @@ class PostController extends Controller
     {
         // Для удаления проверяем право delete
         $this->authorize('delete', $post);
-        
+
         $post->delete();
 
         return redirect()->route('posts.index')
