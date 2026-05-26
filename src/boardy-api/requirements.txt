@@ -1,3 +1,5 @@
 fastapi
 aiomysql
-uvicorn
+uvicorn[standard]
+pyjwt[crypto]
+redis

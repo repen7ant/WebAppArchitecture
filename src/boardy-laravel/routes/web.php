@@ -3,7 +3,6 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PostController;
-use App\Http\Controllers\CommentController;
 use App\Http\Controllers\GitHubController;
 
 Route::get('/', function () {
@@ -24,10 +23,9 @@ Route::middleware('auth')->group(function () {
 Route::get('/auth/github', [GitHubController::class, 'redirect'])->name('github.login');
 Route::get('/auth/github/callback', [GitHubController::class, 'callback']);
 
-Route::resource('posts', PostController::class);
+// OAuth (Passport PKCE) callback page for the SPA — exchanges code for tokens client-side.
+Route::view('/oauth/callback', 'oauth-callback');
 
-Route::post('comments', [CommentController::class, 'store'])
-    ->middleware('auth')
-    ->name('comments.store');
+Route::resource('posts', PostController::class);
 
 require __DIR__.'/auth.php';

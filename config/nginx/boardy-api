@@ -13,11 +13,6 @@ server {
         proxy_read_timeout 86400;
     }
 
-    location /internal {
-        allow 127.0.0.1;
-        deny all;
-    }
-
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;

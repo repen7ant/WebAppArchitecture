@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redis;
 
 class PostController extends Controller
 {
@@ -42,17 +42,14 @@ class PostController extends Controller
         $user = $request->user() ?? \App\Models\User::first();
         $post = $user->posts()->create($data);
 
-        try {
-            \Illuminate\Support\Facades\Http::timeout(2)->post('http://localhost:8000/internal/broadcast', [
-                'id'         => $post->id,
-                'title'      => $post->title,
-                'body'       => $post->body,
-                'author'     => $user->name,
-                'created_at' => $post->created_at->toISOString(),
-            ]);
-        } catch (\Exception $e) {
-            \Log::warning('WS broadcast failed: ' . $e->getMessage());
-        }
+        // Публикуем событие в Redis — FastAPI-подписчик разошлёт его по WebSocket.
+        Redis::publish('new_post', json_encode([
+            'id'         => $post->id,
+            'title'      => $post->title,
+            'body'       => $post->body,
+            'author'     => $user->name,
+            'created_at' => $post->created_at->toISOString(),
+        ]));
 
         return redirect()->route('posts.show', $post)
             ->with('success', 'Пост успешно опубликован!');
@@ -62,8 +59,8 @@ class PostController extends Controller
      */
     public function show(\App\Models\Post $post)
     {
-        // Подгружаем автора поста и авторов всех комментариев (чтобы избежать проблемы N+1 запросов)
-        $post->load('author', 'comments.author');
+        // Комментарии теперь обслуживает FastAPI (boardy_api) + React, грузим только автора поста
+        $post->load('author');
 
         return view('posts.show', compact('post'));
     }
