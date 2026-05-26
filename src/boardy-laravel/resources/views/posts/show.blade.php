@@ -34,44 +34,16 @@
         @endcan
     </div>
 
-    <!-- Блок комментариев -->
-    <h3>Комментарии ({{ $post->comments->count() }})</h3>
+    <!-- Блок комментариев: React + FastAPI (boardy_api) через OAuth-токен -->
+    <h3 class="mb-3">Комментарии</h3>
+    <div id="comments-root"
+         data-post-id="{{ $post->id }}"
+         data-user-id="{{ auth()->id() }}"
+         data-user-name="{{ auth()->user()?->name }}"></div>
 
-    @forelse ($post->comments as $comment)
-        <div class="card mb-3 shadow-sm">
-            <div class="card-body py-2">
-                <p class="mb-1" style="white-space: pre-wrap;">{{ $comment->body }}</p>
-                <small class="text-muted">
-                    <strong>{{ $comment->author->name }}</strong> &middot; {{ $comment->created_at->format('d.m.Y H:i') }}
-                </small>
-            </div>
-        </div>
-    @empty
-        <p class="text-muted">Комментариев пока нет. Будьте первым!</p>
-    @endforelse
-
-    <hr class="my-4">
-
-    <!-- Форма добавления комментария (только для авторизованных) -->
-    @auth
-        <h4>Добавить комментарий</h4>
-        <form action="{{ route('comments.store') }}" method="POST">
-            @csrf
-            <!-- Скрытое поле для передачи ID поста -->
-            <input type="hidden" name="post_id" value="{{ $post->id }}">
-
-            <div class="mb-3">
-                <textarea name="body" class="form-control @error('body') is-invalid @enderror" rows="3" required placeholder="Напишите ваш комментарий..."></textarea>
-                @error('body')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
-            </div>
-
-            <button type="submit" class="btn btn-primary">Отправить</button>
-        </form>
-    @else
-        <div class="alert alert-secondary">
-            Для добавления комментариев необходимо авторизоваться.
-        </div>
-    @endauth
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="module" src="/js/auth.js"></script>
+    <script type="text/babel" data-presets="react" src="/js/comments.jsx"></script>
 @endsection

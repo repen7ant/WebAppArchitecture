@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\User;
+use App\Observers\UserObserver;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
 
@@ -24,5 +26,7 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production') || $this->app->environment('local')) {
             URL::forceScheme('https');
         }
+
+        User::observe(UserObserver::class);
     }
 }
