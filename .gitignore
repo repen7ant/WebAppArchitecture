@@ -1,0 +1,4 @@
+.env
+boardy-laravel/.env
+boardy-laravel/.env.*
+boardy-api/.env

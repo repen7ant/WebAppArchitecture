@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
+    <meta name="passport-client-id" content="{{ env('PASSPORT_SPA_CLIENT_ID') }}">
     <title>Завершаем вход…</title>
 </head>
 <body>
