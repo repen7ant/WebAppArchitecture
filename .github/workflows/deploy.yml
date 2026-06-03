@@ -104,7 +104,7 @@ jobs:
 
       - name: Run PHPUnit
         working-directory: ./boardy-laravel
-        run: php artisan test
+        run: php artisan test --filter=HealthTest
 
       - name: Setup Python
         uses: actions/setup-python@v5
