@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -23,7 +24,9 @@ async def handle_user_renamed(data: dict):
 
 
 async def redis_subscriber():
-    redis = await aioredis.from_url("redis://127.0.0.1:6379")
+    redis = await aioredis.from_url(
+        f"redis://{os.environ.get('REDIS_HOST', '127.0.0.1')}:6379"
+    )
     pubsub = redis.pubsub()
     await pubsub.subscribe("new_post", "user.renamed")
     print("Redis subscriber started: channels new_post, user.renamed", flush=True)
@@ -58,7 +61,11 @@ app = FastAPI(title="Boardy API", version="0.5.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://boardy.emrysdev.xyz"],
+    allow_origins=[
+        "https://boardy.emrysdev.xyz",
+        "http://localhost",
+        "http://localhost:80",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

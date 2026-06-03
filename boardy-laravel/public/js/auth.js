@@ -1,6 +1,6 @@
 import { generateVerifier, generateChallenge, generateState } from './pkce.js';
 
-const CLIENT_ID = '019e64e9-39e2-72dc-b14d-4801cee36c51';
+const CLIENT_ID = document.querySelector('meta[name="passport-client-id"]')?.content;
 const REDIRECT_URI = window.location.origin + '/oauth/callback';
 
 export function getAccessToken() {

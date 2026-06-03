@@ -1,6 +1,9 @@
 const { useState, useEffect, useCallback } = React;
-const API = 'https://boardy-api.emrysdev.xyz';
-const WS_URL = 'wss://boardy-api.emrysdev.xyz/ws';
+const API = window.location.origin;
+const WS_URL =
+    (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+    window.location.host +
+    '/ws';
 
 function Comments({ postId, userId, userName }) {
     const [items, setItems] = useState([]);

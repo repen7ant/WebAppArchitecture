@@ -1,5 +1,0 @@
-fastapi
-aiomysql
-uvicorn[standard]
-pyjwt[crypto]
-redis
