@@ -67,6 +67,11 @@ jobs:
             sleep 2
           done
 
+      - name: Prepare Laravel
+        run: |
+          docker compose exec laravel composer install --no-dev --optimize-autoloader
+          docker compose exec laravel mkdir -p storage/framework/{views,cache,sessions} storage/logs storage/app/public
+
       - name: Smoke endpoints
         run: |
           curl -f http://localhost:8090/health
