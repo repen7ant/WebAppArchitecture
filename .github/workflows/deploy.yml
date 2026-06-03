@@ -99,7 +99,7 @@ jobs:
       - name: Create Laravel test env
         working-directory: ./boardy-laravel
         run: |
-          cp .env.example .env
+          echo "APP_ENV=testing" > .env
           echo "APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')" >> .env
 
       - name: Run PHPUnit
