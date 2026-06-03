@@ -1,0 +1,8 @@
+services:
+  laravel:
+    build: ./boardy-laravel
+    image: ''
+
+  fastapi:
+    build: ./boardy-api
+    image: ''

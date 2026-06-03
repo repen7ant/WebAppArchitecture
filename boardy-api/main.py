@@ -24,9 +24,13 @@ async def handle_user_renamed(data: dict):
 
 
 async def redis_subscriber():
-    redis = await aioredis.from_url(
-        f"redis://{os.environ.get('REDIS_HOST', '127.0.0.1')}:6379"
-    )
+    try:
+        redis = await aioredis.from_url(
+            f"redis://{os.environ.get('REDIS_HOST', '127.0.0.1')}:6379"
+        )
+    except Exception as e:
+        print(f"Redis subscriber failed to connect: {e}", flush=True)
+        return
     pubsub = redis.pubsub()
     await pubsub.subscribe("new_post", "user.renamed")
     print("Redis subscriber started: channels new_post, user.renamed", flush=True)
@@ -70,6 +74,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
 
 app.include_router(comments.router)
 app.include_router(ws.router)

@@ -1,0 +1,178 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/webapparchitecture
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP syntax check
+        run: find boardy-laravel -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - name: Python syntax check
+        run: python -m compileall boardy-api/ -q
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create env files
+        run: |
+          cat > .env <<'EOF'
+          MYSQL_ROOT_PASSWORD=ci_root_pass
+          DB_USER=boardy
+          DB_PASSWORD=ci_pass
+          EOF
+          cat > boardy-laravel/.env <<'EOF'
+          APP_NAME=Boardy
+          APP_ENV=local
+          APP_KEY=
+          APP_DEBUG=true
+          APP_URL=http://localhost
+          DB_CONNECTION=mysql
+          DB_HOST=mysql
+          DB_PORT=3306
+          DB_DATABASE=boardy_laravel
+          DB_USERNAME=boardy
+          DB_PASSWORD=ci_pass
+          REDIS_CLIENT=predis
+          REDIS_HOST=redis
+          REDIS_PASSWORD=null
+          REDIS_PORT=6379
+          SESSION_DRIVER=array
+          CACHE_STORE=array
+          QUEUE_CONNECTION=sync
+          PASSPORT_SPA_CLIENT_ID=dummy
+          EOF
+          echo "APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')" >> boardy-laravel/.env
+
+      - name: Build images
+        run: docker compose build
+
+      - name: Start stack
+        run: |
+          docker compose up -d
+          for i in {1..30}; do
+            curl -fs http://localhost:8090/health && break
+            sleep 2
+          done
+
+      - name: Smoke endpoints
+        run: |
+          curl -f http://localhost:8090/health
+          curl -f http://localhost:8090/api/health
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  test:
+    runs-on: ubuntu-latest
+    needs: smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Install PHP deps
+        working-directory: ./boardy-laravel
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Create Laravel test env
+        working-directory: ./boardy-laravel
+        run: |
+          cp .env.example .env
+          echo "APP_KEY=base64:$(openssl rand -base64 32 | tr -d '\n')" >> .env
+
+      - name: Run PHPUnit
+        working-directory: ./boardy-laravel
+        run: php artisan test
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: pip install -r boardy-api/requirements.txt pytest httpx
+
+      - name: Run pytest
+        working-directory: ./boardy-api
+        run: pytest -v
+
+  build:
+    runs-on: ubuntu-24.04-arm
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push Laravel image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./boardy-laravel
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-laravel:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}-laravel:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push FastAPI image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./boardy-api
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-api:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.TAILSCALE_SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ secrets.SERVER_PATH }}
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ secrets.SERVER_USER }} --password-stdin
+            docker compose pull
+            docker compose up -d
+            docker image prune -f

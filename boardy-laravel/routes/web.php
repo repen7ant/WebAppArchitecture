@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\GitHubController;
 
+Route::get('/health', fn () => response()->json(['ok' => true]))->withoutMiddleware(['web']);
+
 Route::get('/', function () {
     return view('welcome');
 });
