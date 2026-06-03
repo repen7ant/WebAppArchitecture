@@ -115,17 +115,3 @@ jobs:
       - name: Run pytest
         working-directory: ./boardy-api
         run: pytest -v
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Would build & push images
-        run: echo "build job runs only if test passed"
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Would deploy to server
-        run: echo "deploy job runs only if build passed"
